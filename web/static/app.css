@@ -164,9 +164,14 @@ code { font-family: var(--mono); font-size: .88em; }
 .badge.demo { background: var(--ember-soft); color: var(--ember); }
 .get-app {
   margin-left: auto; display: flex; align-items: center; gap: 7px; padding: 7px 12px;
-  border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); font-weight: 600; font-size: 14px;
+  border-radius: 999px; border: 1px solid transparent; font-weight: 600; font-size: 14px;
+  background: var(--tanzanite); color: var(--tanzanite-ink);
+  box-shadow: 0 1px 2px rgba(25, 26, 46, .12), 0 4px 12px -4px color-mix(in srgb, var(--tanzanite) 55%, transparent);
+  transition: filter .15s, transform .1s;
 }
-.get-app:hover { border-color: var(--tanzanite); color: var(--tanzanite); }
+.get-app:hover { filter: brightness(1.1); }
+.get-app:active { transform: scale(.97); }
+.get-app svg { stroke-width: 2.2; }
 .get-app:not([hidden]) + .memory-toggle { margin-left: 0; }
 .memory-toggle {
   margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 7px 12px;
