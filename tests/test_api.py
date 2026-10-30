@@ -136,3 +136,24 @@ def test_installable_app_files_are_served():
     for icon in manifest["icons"]:
         assert c.get("/" + icon["src"]).status_code == 200
     assert 'rel="manifest"' in c.get("/").text
+
+
+def test_vector_store_outage_does_not_break_startup_or_cors(monkeypatch):
+    def down():
+        raise ConnectionError("cluster suspended")
+
+    monkeypatch.setattr(api, "store", down)
+    r = c.get("/api/config", headers={"Origin": "https://valentinakiyungi.github.io"})
+    assert r.status_code == 200
+    assert r.json()["vector_backend"] == "unavailable" and "cluster suspended" in r.json()["vector_error"]
+    assert r.headers["access-control-allow-origin"] == "https://valentinakiyungi.github.io"
+
+
+def test_unexpected_crash_still_returns_json_with_cors(monkeypatch):
+    def boom(user_id):
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(api.sessions(), "list", boom)
+    r = c.get("/api/conversations", params={"user_id": U}, headers={"Origin": "https://valentinakiyungi.github.io"})
+    assert r.status_code == 500 and "kaboom" in r.json()["detail"]
+    assert r.headers["access-control-allow-origin"] == "https://valentinakiyungi.github.io"

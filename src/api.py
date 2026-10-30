@@ -34,6 +34,18 @@ app = FastAPI(title="Kumbuka", version="2.0.0",
               description="A memory-augmented conversational agent (LangGraph + Gemini + Qdrant).")
 api = APIRouter(prefix="/api")
 
+# Turn unexpected crashes into JSON errors. This middleware is registered before CORS,
+# so it sits inside it: even a 500 carries CORS headers and the browser can read the
+# real error instead of reporting a misleading CORS failure.
+@app.middleware("http")
+async def json_errors(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        log.exception("Unhandled error on %s %s", request.method, request.url.path)
+        return JSONResponse({"detail": f"Server error: {type(e).__name__}: {str(e)[:200]}"}, status_code=500)
+
+
 # Let a separately hosted front end (e.g. GitHub Pages) call this API.
 if config.CORS_ORIGINS:
     from fastapi.middleware.cors import CORSMiddleware
@@ -113,12 +125,23 @@ def health():
 
 @api.get("/config")
 def get_config():
-    info = llm.provider_info()
-    s = store()
+    """Never fails: the UI needs this to start even if a dependency is down."""
+    try:
+        info = llm.provider_info()
+    except Exception as e:
+        log.exception("Model provider unavailable")
+        info = {"provider": "unavailable", "model": "unavailable", "embed_model": "", "demo": False,
+                "model_error": f"{type(e).__name__}: {str(e)[:200]}"}
+    try:
+        s = store()
+        vector = {"vector_backend": s.backend, "vector_location": getattr(s, "location", "")}
+    except Exception as e:
+        log.exception("Vector store unavailable")
+        vector = {"vector_backend": "unavailable", "vector_location": "",
+                  "vector_error": f"{type(e).__name__}: {str(e)[:200]}"}
     return {
         **info,
-        "vector_backend": s.backend,
-        "vector_location": getattr(s, "location", ""),
+        **vector,
         "categories": config.CATEGORIES,
         "history_window": config.HISTORY_WINDOW,
         "recall_limit": config.RECALL_LIMIT,

@@ -889,8 +889,15 @@
       const demo = S.config.demo;
       $("demoBadge").hidden = !demo;
       $("demoNote").hidden = !demo || localStorage.getItem("kumbuka-demo-dismissed") === "1";
-      $("engineInfo").textContent = `${demo ? "Demo" : S.config.model} · ${S.config.vector_backend === "qdrant" ? "Qdrant" : "in-memory"}`;
+      const vec = { qdrant: "Qdrant", "in-process": "in-memory", unavailable: "memory offline" }[S.config.vector_backend] || S.config.vector_backend;
+      $("engineInfo").textContent = `${demo ? "Demo" : S.config.model} · ${vec}`;
       $("engineInfo").title = `Model: ${S.config.model}\nEmbeddings: ${S.config.embed_model}\nVector store: ${S.config.vector_backend} (${S.config.vector_location})`;
+      if (S.config.vector_error) {
+        toast("Long-term memory is offline, so Kumbuka can chat but won't remember. " + S.config.vector_error, { error: true, timeout: 12000 });
+      }
+      if (S.config.model_error) {
+        toast("The AI model isn't available: " + S.config.model_error, { error: true, timeout: 12000 });
+      }
       $("addMemCat").replaceChildren(...S.config.categories.map((c) => h("option", { value: c }, CAT_LABEL[c] || c)));
     } catch {
       $("engineInfo").textContent = "Server offline";
