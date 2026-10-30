@@ -1,4 +1,3 @@
-from google.genai import types
 from pydantic import BaseModel
 
 from src import llm
@@ -19,14 +18,6 @@ def next_prompts(user_message: str, reply: str, n: int = 3) -> list[str]:
         f"User's last message: {user_message[:1000]}\n\n"
         f"Assistant's reply: {reply[:2500]}"
     )
-    raw = llm.generate(
-        prompt,
-        types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=Suggestions,
-            temperature=0.8,
-        ),
-        retries=1,
-    )
+    raw = llm.generate(prompt, schema=Suggestions, temperature=0.8, retries=1, task="suggest")
     items = [s.strip().strip('"') for s in Suggestions.model_validate_json(raw).suggestions]
     return [s for s in items if 3 <= len(s) <= 120][:n]

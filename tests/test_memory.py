@@ -1,68 +1,64 @@
-import hashlib
-import re
-
-import pytest
-from fastapi.testclient import TestClient
-
-from src import config, llm, memory
+from src import memory
 
 
-def fake_embed(texts, task_type):
-    out = []
-    for t in texts:
-        v = [0.0] * config.VECTOR_SIZE
-        for w in re.findall(r"[a-z0-9]+", t.lower()):
-            v[int(hashlib.md5(w.encode()).hexdigest(), 16) % config.VECTOR_SIZE] += 1.0
-        out.append(v)
-    return out
+def test_save_and_recall_with_scores_and_timings():
+    assert memory.save_memory("alice", "I build services with FastAPI and Qdrant", "stack")
+    found, timings = memory.recall("alice", "how should I structure a FastAPI service")
+    assert [m["content"] for m in found] == ["I build services with FastAPI and Qdrant"]
+    assert found[0]["category"] == "stack" and 0 < found[0]["score"] <= 1
+    assert set(timings) == {"embed_ms", "lookup_ms"}
 
 
-@pytest.fixture(autouse=True)
-def store(monkeypatch):
-    monkeypatch.setattr(config, "QDRANT_PATH", ":memory:")
-    monkeypatch.setattr(config, "QDRANT_URL", "")
-    monkeypatch.setattr(config, "RECALL_THRESHOLD", 0.1)
-    monkeypatch.setattr(llm, "embed", fake_embed)
-    memory._client.cache_clear()
-    yield
-    memory._client.cache_clear()
-
-
-def test_save_and_recall():
-    assert memory.save_memory("alice", "I build services with FastAPI and Qdrant")
-    hits = memory.retrieve_memories("alice", "how should I structure a FastAPI service")
-    assert hits == ["I build services with FastAPI and Qdrant"]
+def test_recall_increments_usage_counter():
+    memory.save_memory("alice", "I deploy on Fly.io")
+    memory.recall("alice", "where do I deploy")
+    memory.recall("alice", "deploy target")
+    assert memory.list_memories("alice")[0]["recall_count"] == 2
 
 
 def test_duplicates_are_not_stored_twice():
     assert memory.save_memory("alice", "I prefer Qdrant over Pinecone")
-    assert not memory.save_memory("alice", "I prefer Qdrant over Pinecone")
+    assert memory.save_memory("alice", "I prefer  Qdrant over Pinecone") is None
     assert len(memory.list_memories("alice")) == 1
 
 
 def test_unrelated_query_returns_nothing():
     memory.save_memory("alice", "I build services with FastAPI")
-    assert memory.retrieve_memories("alice", "recipe for pancakes") == []
+    assert memory.recall("alice", "recipe for pancakes")[0] == []
 
 
 def test_users_are_isolated():
     memory.save_memory("alice", "I build services with FastAPI")
-    assert memory.retrieve_memories("bob", "FastAPI services") == []
+    assert memory.recall("bob", "FastAPI services")[0] == []
     assert memory.list_memories("bob") == []
+    assert memory.search("bob", "FastAPI") == []
 
 
-def test_cannot_delete_another_users_memory():
-    memory.save_memory("alice", "I use LangGraph")
-    mid = memory.list_memories("alice")[0]["id"]
+def test_cannot_touch_another_users_memory():
+    mid = memory.save_memory("alice", "I use LangGraph")["id"]
     assert not memory.delete_memory("bob", mid)
+    assert memory.update_memory("bob", mid, "hacked") is None
     assert memory.delete_memory("alice", mid)
     assert memory.list_memories("alice") == []
 
 
-def test_api_validation():
-    from src.api import app
+def test_edit_re_embeds_so_search_follows_new_text():
+    mid = memory.save_memory("alice", "I write Go microservices", "stack")["id"]
+    memory.update_memory("alice", mid, content="I write Rust command line tools")
+    top = memory.search("alice", "Rust command line")[0]
+    assert top["id"] == mid and top["content"] == "I write Rust command line tools"
 
-    c = TestClient(app)
-    assert c.get("/health").json() == {"ok": True}
-    assert c.get("/memories").status_code == 422
-    assert c.post("/chat", json={"user_id": "x", "message": "hi"}).status_code == 422
+
+def test_unknown_categories_fall_back_to_personal():
+    row = memory.save_memory("alice", "I live in Arusha", "hobby")
+    assert row["category"] == "personal"
+    assert memory.update_memory("alice", row["id"], category="goal")["category"] == "goal"
+
+
+def test_delete_all_only_affects_one_user():
+    memory.save_memory("alice", "I use Postgres")
+    memory.save_memory("alice", "I use Redis for caching")
+    memory.save_memory("bob", "I use MySQL")
+    assert memory.delete_all("alice") == 2
+    assert memory.list_memories("alice") == []
+    assert len(memory.list_memories("bob")) == 1

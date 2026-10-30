@@ -1,116 +1,218 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kumbuka | An AI that remembers</title>
-<style>
-:root{
-  --bg1:#eef0ff;--bg2:#f6f0ff;--bg3:#fff0f6;
-  --ink:#1b1736;--mute:#6a6585;--card:rgba(255,255,255,.82);--line:#ddd8f3;
-  --acc:#6d4aff;--acc2:#9b5cff;--user:#6d4aff;--bot:#ffffff;--err:#c0392b;--field:#f6f4ff;
-}
-@media (prefers-color-scheme:dark){:root{
-  --bg1:#0d0b1f;--bg2:#161033;--bg3:#1f0f2e;
-  --ink:#ece9ff;--mute:#a29cc6;--card:rgba(28,22,56,.78);--line:#35295f;
-  --acc:#8b6dff;--acc2:#b57cff;--user:#6d4aff;--bot:#221a45;--err:#ff8a7a;--field:#1a1438;
-}}
-*{box-sizing:border-box}
-body{margin:0;min-height:100vh;color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
-  background:linear-gradient(135deg,var(--bg1),var(--bg2) 50%,var(--bg3)) fixed}
-main{max-width:760px;margin:0 auto;padding:18px}
-.card{background:var(--card);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 8px 30px rgba(60,40,140,.08)}
-.brand{display:flex;align-items:center;gap:12px}
-.logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px}
-h1{font-size:1.5rem;margin:0;line-height:1.1}.tag{margin:0;color:var(--mute);font-size:.85rem}
-h2{font-size:1rem;margin:0 0 10px}
-.notice{font-size:.78rem;color:var(--mute);margin:12px 0}
-#log{height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px}
-.m{padding:10px 14px;border-radius:14px;max-width:88%;word-wrap:break-word}
-.user{align-self:flex-end;background:linear-gradient(135deg,var(--user),var(--acc2));color:#fff;white-space:pre-wrap;border-bottom-right-radius:4px}
-.bot{align-self:flex-start;background:var(--bot);border:1px solid var(--line);border-bottom-left-radius:4px}
-.bot p{margin:0 0 8px}.bot p:last-child{margin:0}.bot h4{margin:10px 0 4px;font-size:1rem}
-.bot ul,.bot ol{margin:4px 0 8px;padding-left:22px}.bot hr{border:0;border-top:1px solid var(--line);margin:10px 0}
-.bot code{background:var(--field);padding:1px 5px;border-radius:5px;font-size:.88em}
-.note{align-self:flex-start;font-size:.8rem;color:var(--acc);background:var(--field);padding:3px 10px;border-radius:999px}
-.err{align-self:flex-start;color:var(--err);font-size:.9rem}
-.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.chip{font-size:.8rem;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--field);color:var(--ink);cursor:pointer}
-form{display:flex;gap:8px;margin-top:12px}
-input{flex:1;font:inherit;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink)}
-input:focus-visible,button:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
-button{font:inherit;cursor:pointer;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);padding:8px 14px}
-button.p{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;color:#fff;font-weight:600}
-button:disabled{opacity:.5;cursor:default}
-ul#mem{list-style:none;margin:0;padding:0}
-#mem li{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line);font-size:.88rem}
-#mem button{font-size:.75rem;padding:3px 9px;border-radius:8px;color:var(--mute)}
-.sub{color:var(--mute);font-size:.85rem}
-.dots span{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:var(--mute);animation:b 1s infinite}
-.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
-@keyframes b{0%,80%,100%{opacity:.3}40%{opacity:1}}
-@media(prefers-reduced-motion:reduce){.dots span{animation:none}}
-</style></head><body>
-<main>
-<section class="card">
-  <div class="brand"><div class="logo" aria-hidden="true">K</div>
-    <div><h1>Kumbuka</h1><p class="tag">An AI that remembers you</p></div></div>
-  <p class="notice">Tell Kumbuka about your work, or ask something to help you</p>
-  <div id="log" aria-live="polite"></div>
-  <div class="chips" id="chips"></div>
-  <form id="f"><input id="t" maxlength="2000" placeholder="Tell me about your work, or ask something..." autocomplete="off" aria-label="Message"><button class="p" id="b">Send</button></form>
-</section>
-</main>
-<script>
-const KEY="kumbuka-id";
-let uid=localStorage.getItem(KEY)||localStorage.getItem("memory-agent-id");
-if(!uid){uid=crypto.randomUUID()}
-localStorage.setItem(KEY,uid);
-const $=id=>document.getElementById(id);
-function md(src){
-  const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  const inl=s=>esc(s).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<em>$2</em>");
-  let out="",list=null;const close=()=>{if(list){out+="</"+list+">";list=null}};
-  for(const raw of src.split("\n")){
-    const l=raw.trimEnd();let m;
-    if(m=l.match(/^#{1,4}\s+(.*)/)){close();out+="<h4>"+inl(m[1])+"</h4>"}
-    else if(/^\s*[-*]\s+/.test(l)){if(list!=="ul"){close();out+="<ul>";list="ul"}out+="<li>"+inl(l.replace(/^\s*[-*]\s+/,""))+"</li>"}
-    else if(m=l.match(/^\s*\d+\.\s+(.*)/)){if(list!=="ol"){close();out+="<ol>";list="ol"}out+="<li>"+inl(m[1])+"</li>"}
-    else if(/^-{3,}$/.test(l.trim())){close();out+="<hr>"}
-    else if(!l.trim()){close()}
-    else{close();out+="<p>"+inl(l)+"</p>"}
-  }
-  close();return out;
-}
-function add(cls,text,html){const d=document.createElement("div");d.className=cls==="note"||cls==="err"?cls:"m "+cls;
-  if(html)d.innerHTML=html;else d.textContent=text;$("log").appendChild(d);$("log").scrollTop=1e9;return d}
-const STARTERS=["I'm working on a new project","Here's my tech stack","I prefer short, direct answers"];
-function setChips(list){const box=$("chips");box.innerHTML="";list.forEach(t=>{const c=document.createElement("button");c.type="button";c.className="chip";c.textContent=t;c.onclick=()=>send(t);box.appendChild(c)})}
-setChips(STARTERS);
-let busy=false,turn=0;
-async function send(m){
-  m=(m||"").trim();if(!m||busy)return;
-  busy=true;const my=++turn;$("t").value="";$("b").disabled=true;setChips([]);add("user",m);
-  const wait=add("bot","","<span class='dots'><span></span><span></span><span></span></span>");
-  let reply=null;
-  try{
-    const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:uid,message:m})});
-    const d=await r.json();wait.remove();
-    if(!r.ok){add("err",typeof d.detail==="string"?d.detail:"Something went wrong. Please try again.")}
-    else{
-      reply=d.reply;add("bot","",md(d.reply));
-      d.memories_saved.forEach(x=>add("note","Remembered: "+x));
-      if(d.memory_error)add("note","Memory is unavailable right now, so this was not saved ("+d.memory_error+")");
-    }
-  }catch(err){wait.remove();add("err","Could not reach the server. It may be waking up, so try again in a minute.")}
-  busy=false;$("b").disabled=false;$("t").focus();
-  if(reply)suggest(m,reply,my);
-}
-async function suggest(m,reply,my){
-  try{
-    const r=await fetch("/suggest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:uid,message:m,reply:reply.slice(0,5000)})});
-    if(!r.ok)return;
-    const d=await r.json();
-    if(my===turn&&!busy&&d.suggestions.length)setChips(d.suggestions);
-  }catch(e){}
-}
-$("f").onsubmit=e=>{e.preventDefault();send($("t").value)};
-</script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kumbuka · the AI that remembers you</title>
+<meta name="description" content="A chat assistant for developers that remembers your stack, projects and preferences across conversations.">
+<meta name="theme-color" content="#4B3FB0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234B3FB0'/%3E%3Cpath d='M11 8v16M11 16l9-8M14 13l7 11' stroke='%23fff' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='24' cy='8' r='3' fill='%23F0B04A'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- Conversations ------------------------------------------------------>
+  <aside class="sidebar" id="sidebar" aria-label="Conversations">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--tanzanite)"/><path d="M11 8v16M11 16l9-8M14 13l7 11" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="24" cy="8" r="3" fill="var(--ember)"/></svg>
+      <div>
+        <div class="brand-name">Kumbuka</div>
+        <div class="brand-sub">remembers you</div>
+      </div>
+      <button class="icon-btn only-mobile" data-close-drawer aria-label="Close conversations">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <button class="new-chat" id="newChat">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      New chat <kbd>Ctrl K</kbd>
+    </button>
+
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+      <input id="convSearch" type="search" placeholder="Search chats" aria-label="Search chats" autocomplete="off">
+    </label>
+
+    <nav class="conv-list" id="convList" aria-label="Chat history"></nav>
+
+    <div class="sidebar-foot">
+      <button class="foot-btn" id="openSettings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+        Settings
+      </button>
+      <span class="engine" id="engineInfo" title="Model and vector store">…</span>
+    </div>
+  </aside>
+
+  <!-- Chat ------------------------------------------------------------------->
+  <main class="main" id="main">
+    <header class="topbar">
+      <button class="icon-btn only-mobile" id="openSidebar" aria-label="Open conversations">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      </button>
+      <h1 class="conv-title" id="convTitle">New chat</h1>
+      <span class="badge demo" id="demoBadge" hidden title="No Gemini API key configured">Demo mode</span>
+      <button class="memory-toggle" id="toggleMemory" aria-controls="memoryPanel" aria-expanded="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4a3 3 0 0 0-3 3v.2A3.5 3.5 0 0 0 4 13a3.5 3.5 0 0 0 3 5.4A3 3 0 0 0 12 19V6a2 2 0 0 0-3-2zM15 4a3 3 0 0 1 3 3v.2A3.5 3.5 0 0 1 20 13a3.5 3.5 0 0 1-3 5.4A3 3 0 0 1 12 19"/></svg>
+        <span>Memory</span>
+        <span class="count" id="memCount">0</span>
+      </button>
+    </header>
+
+    <div class="demo-note" id="demoNote" hidden>
+      Running offline: replies are templated, but memory recall, storage and compression are real.
+      Add <code>GEMINI_API_KEY</code> to <code>.env</code> and restart for full answers.
+      <button class="link-btn" id="dismissDemo">Dismiss</button>
+    </div>
+
+    <section class="thread" id="thread" aria-live="polite" aria-label="Messages">
+      <div class="empty" id="empty">
+        <h2 class="empty-title">What should I remember about you?</h2>
+        <p class="empty-lead">Tell me about your stack, projects and preferences once. I'll recall the relevant parts in every future conversation, and you can see and edit everything I keep.</p>
+        <div class="starters" id="starters"></div>
+      </div>
+    </section>
+
+    <div class="suggestions" id="suggestions" aria-label="Suggested replies"></div>
+
+    <form class="composer" id="composer" autocomplete="off">
+      <div class="composer-box">
+        <textarea id="input" rows="1" maxlength="8000" placeholder="Message Kumbuka…" aria-label="Message"></textarea>
+        <div class="composer-row">
+          <span class="hint">Enter to send · Shift+Enter for a new line</span>
+          <span class="charcount" id="charCount"></span>
+          <button type="button" class="stop-btn" id="stopBtn" hidden aria-label="Stop generating">
+            <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg> Stop
+          </button>
+          <button type="submit" class="send-btn" id="sendBtn" aria-label="Send message" disabled>
+            <svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </form>
+  </main>
+
+  <!-- Memory ----------------------------------------------------------------->
+  <aside class="panel" id="memoryPanel" aria-label="Memory">
+    <div class="panel-head">
+      <div class="tabs" role="tablist">
+        <button role="tab" class="tab active" data-tab="memories" aria-selected="true">Memories</button>
+        <button role="tab" class="tab" data-tab="insights" aria-selected="false">Insights</button>
+      </div>
+      <button class="icon-btn" id="closeMemory" aria-label="Close memory panel">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="tab-body" id="tab-memories">
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+        <input id="memSearch" type="search" placeholder="Search by meaning, e.g. “database”" aria-label="Search memories">
+      </label>
+      <div class="cat-filter" id="catFilter" role="group" aria-label="Filter by category"></div>
+      <ul class="mem-list" id="memList"></ul>
+
+      <details class="add-mem" id="addMem">
+        <summary>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Add a memory yourself
+        </summary>
+        <form id="addMemForm">
+          <textarea id="addMemText" rows="2" maxlength="500" placeholder="e.g. I deploy everything on Fly.io" required></textarea>
+          <div class="add-row">
+            <select id="addMemCat" aria-label="Category"></select>
+            <button type="submit" class="btn primary">Save memory</button>
+          </div>
+        </form>
+      </details>
+
+      <div class="panel-foot">
+        <a class="link-btn" id="exportMem" download>Export JSON</a>
+        <button class="link-btn danger" id="forgetAll">Forget everything</button>
+      </div>
+    </div>
+
+    <div class="tab-body" id="tab-insights" hidden>
+      <div class="insights" id="insights"></div>
+    </div>
+  </aside>
+
+  <div class="scrim" id="scrim" hidden></div>
+</div>
+
+<!-- Settings ------------------------------------------------------------------->
+<dialog class="modal" id="settings" aria-labelledby="settingsTitle">
+  <form method="dialog" class="modal-inner">
+    <div class="modal-head">
+      <h2 id="settingsTitle">Settings</h2>
+      <button class="icon-btn" value="close" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+
+    <section class="setting">
+      <h3>Appearance</h3>
+      <div class="segmented" role="radiogroup" aria-label="Theme" id="themePick">
+        <button type="button" data-theme-choice="system" role="radio">System</button>
+        <button type="button" data-theme-choice="light" role="radio">Light</button>
+        <button type="button" data-theme-choice="dark" role="radio">Dark</button>
+      </div>
+    </section>
+
+    <section class="setting">
+      <h3>Your memory key</h3>
+      <p class="setting-help">Kumbuka knows you by this key, stored only in this browser. Copy it to another device to bring your memories along. Anyone with the key can read your memories.</p>
+      <div class="key-row">
+        <input id="userKey" readonly aria-label="Your memory key">
+        <button type="button" class="btn" id="copyKey">Copy</button>
+      </div>
+      <details class="switch-key">
+        <summary>Use a key from another device</summary>
+        <div class="key-row">
+          <input id="newKey" placeholder="Paste a memory key" aria-label="Memory key to use">
+          <button type="button" class="btn" id="useKey">Switch</button>
+        </div>
+      </details>
+    </section>
+
+    <section class="setting">
+      <h3>Data</h3>
+      <div class="data-row">
+        <button type="button" class="btn" id="clearChats">Delete all chats</button>
+        <button type="button" class="btn danger" id="forgetAll2">Forget all memories</button>
+      </div>
+      <p class="setting-help">Messages are processed by Google Gemini. Avoid sharing secrets or sensitive personal data.</p>
+    </section>
+
+    <section class="setting">
+      <h3>Keyboard</h3>
+      <dl class="keys">
+        <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>New chat</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>.</kbd></dt><dd>Show or hide memory</dd>
+        <dt><kbd>/</kbd></dt><dd>Focus the message box</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Stop a reply or close a panel</dd>
+      </dl>
+    </section>
+  </form>
+</dialog>
+
+<dialog class="modal small" id="confirm" aria-labelledby="confirmTitle">
+  <form method="dialog" class="modal-inner">
+    <h2 id="confirmTitle">Are you sure?</h2>
+    <p id="confirmBody"></p>
+    <div class="modal-actions">
+      <button class="btn" value="cancel">Cancel</button>
+      <button class="btn danger" value="ok" id="confirmOk">Delete</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="/static/markdown.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

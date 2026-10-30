@@ -1,83 +1,146 @@
 # Kumbuka
 
-**An AI chat that remembers you.** *Kumbuka* means "remember" in Swahili.
+**An AI collaborator that remembers you.** *Kumbuka* means "remember" in Swahili.
 
+Tell Kumbuka about your stack, projects and preferences once. It extracts the lasting facts, stores them as vectors, and recalls the relevant ones in every later conversation. Long chats stay fast because older turns are folded into a running summary. You can see, search, edit and delete everything it keeps.
 
-Tell Kumbuka about your tools, preferences, and projects. It extracts the lasting facts, stores them as vectors, and recalls the relevant ones in later conversations, even after you close the page.
+**Stack:** LangGraph · Google Gemini · Qdrant · FastAPI · SQLite · vanilla JS (no build step)
 
-## How it works
+## Highlights
 
-1. **Recall:** your newest message is embedded and matched against your stored memories in Qdrant.
-2. **Answer:** Gemini replies using the recalled facts and your last 12 messages (short-term memory, kept by a LangGraph checkpointer).
-3. **Remember:** your message is scanned for lasting facts you stated about yourself. New, non-duplicate facts are embedded and stored.
+- **Dual-tier memory.** Session tier: every conversation, persisted in SQLite, with a running summary. Vector tier: facts about you in Qdrant, scoped per visitor, de-duplicated, categorised and ranked by similarity.
+- **Parallel LangGraph pipeline.** Answering and fact extraction run side by side, so remembering adds no latency to the reply.
+- **Context compression.** After `HISTORY_WINDOW` messages, older turns are summarised; only the summary, the recalled facts and the recent tail are sent to the model. Every reply records how much smaller its prompt was than the full transcript.
+- **Streaming UI.** Token-by-token replies over server-sent events, with a live *memory trace* under each answer: which memories were recalled, their similarity, and the Qdrant lookup time.
+- **Memory you control.** Semantic search, category filters, inline edit (re-embeds the text), manual add, forget one (with undo), forget everything, JSON export.
+- **Insights.** Lookup latency (p50/p95 + sparkline), prompt reduction, tokens saved, what Kumbuka knows by category, most-recalled memories.
+- **Works offline.** Without an API key it runs in demo mode: templated replies, but real recall, storage and compression, so you can explore the whole app.
+- Chat history with search, pinning, renaming; light/dark themes; keyboard shortcuts; responsive down to phones; accessible focus states and reduced-motion support.
 
-One-off requests ("how do I bake a cake?") are not meant to be saved. Memories are separated per visitor by an anonymous ID stored in the browser.
+## How a turn works
 
-## Tech stack
+```
+          ┌────────┐      ┌──────────┐
+ START ──▶│ recall │──┬──▶│ respond  │──┐   ┌──────────┐
+          └────────┘  │   └──────────┘  ├──▶│ compress │──▶ END
+                      │   ┌──────────┐  │   └──────────┘
+                      └──▶│ remember │──┘
+                          └──────────┘
+```
 
-Python, FastAPI, LangGraph, Google Gemini (`google-genai`), Qdrant (local mode or Qdrant Cloud), vanilla HTML/CSS/JS front end.
+1. **recall** embeds your message (`RETRIEVAL_QUERY`) and searches your memories in Qdrant.
+2. **respond** streams a Gemini answer from: recalled facts + conversation summary + recent messages.
+3. **remember** (in parallel) asks Gemini for lasting first-person facts as structured JSON, embeds them, skips near-duplicates (cosine ≥ 0.92) and stores the rest with a category.
+4. **compress** folds older turns into the running summary once the window grows past `HISTORY_WINDOW` messages or `MAX_HISTORY_CHARS`.
 
 ## Run locally
 
 ```bash
-git clone https://github.com/Valentina14142000/kumbuka.git
-cd kumbuka
+git clone https://github.com/valentinakiyungi/Kumbuka-memory-agent.git
+cd Kumbuka-memory-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-echo "GEMINI_API_KEY=your-key" > .env
-python -m pytest -v                       # tests need no API key
-python -m uvicorn src.api:app --port 8000 # web app at http://127.0.0.1:8000
-python app.py                             # or: terminal chat
+cp .env.example .env            # add GEMINI_API_KEY (or leave empty for demo mode)
+python -m pytest -q             # tests need no API key
+uvicorn src.api:app --port 8000 # open http://127.0.0.1:8000
 ```
 
-Get a free key at [Google AI Studio](https://aistudio.google.com). Local mode stores memories in `qdrant_data/` and needs no Docker. Only one process can use that folder at a time, so stop the terminal chat before starting the web app.
+Other entry points:
+
+```bash
+python app.py                   # terminal chat (stop the server first in local-files mode)
+python check_memory.py          # diagnose model, embeddings and Qdrant step by step
+python -m scripts.benchmark     # measure lookup latency and prompt compression
+```
+
+Get a free key at [Google AI Studio](https://aistudio.google.com). Local mode keeps memories in `data/qdrant/` and chats in `data/kumbuka.db`. Only one process can open the local Qdrant folder at a time.
+
+### With Docker
+
+```bash
+cp .env.example .env            # add your key
+docker compose up --build       # app on :8000, Qdrant server on :6333
+```
+
+## Measuring the numbers
+
+`scripts/benchmark.py` runs a scripted multi-turn session through the real agent and reports Qdrant lookup latency and prompt size versus a "send the whole transcript" baseline. The same figures appear live in the **Insights** tab.
+
+A sample run in demo mode (local Qdrant, 500+ stored memories, 24 turns):
+
+```
+vector lookup  p50 6.96 ms   p95 9.17 ms   max 10.33 ms
+prompt size    53.6% smaller on average once compression kicks in (19 turns)
+```
+
+Lookup time excludes the embedding API call, which is reported separately (`embed_ms`). Compression depends on how long the model's replies and summaries are, so re-run the benchmark with your Gemini key for numbers to quote.
 
 ## Configuration
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `GEMINI_API_KEY` | Gemini key (required) | none |
-| `GEMINI_MODELS` | Chat models, tried in order | `gemini-3.8-flash,gemini-3.5-flash` |
-| `EMBED_MODEL`, `VECTOR_SIZE` | Embedding model and its dimension | `gemini-embedding-001`, `768` |
-| `QDRANT_URL`, `QDRANT_API_KEY` | Use Qdrant Cloud instead of local files | unset |
-| `RECALL_THRESHOLD` | Minimum similarity to recall a memory | `0.55` |
-| `CHAT_PER_HOUR` | Messages per IP per hour | `30` |
+| `GEMINI_API_KEY` | Gemini key. Empty means demo mode | none |
+| `GEMINI_MODELS` | Chat models, tried in order | `gemini-3.8-flash,gemini-3.5-flash,gemini-2.5-flash` |
+| `EMBED_MODEL`, `VECTOR_SIZE` | Embedding model and dimension | `gemini-embedding-001`, `768` |
+| `QDRANT_URL`, `QDRANT_API_KEY` | Use a Qdrant server or Qdrant Cloud | unset (local files) |
+| `RECALL_THRESHOLD`, `RECALL_LIMIT` | Minimum similarity and max memories per turn | `0.55`, `4` |
+| `DUPLICATE_THRESHOLD` | Similarity above which a new fact counts as a duplicate | `0.92` |
+| `HISTORY_WINDOW`, `KEEP_RECENT` | Fold history after N messages, keeping the last M verbatim | `8`, `4` |
+| `SUMMARY_MAX_CHARS` | Length cap for the running summary | `1200` |
+| `KUMBUKA_DB` | SQLite file for conversations | `data/kumbuka.db` |
+| `CHAT_PER_HOUR` | Messages per IP per hour | `60` |
+| `LLM_PROVIDER` | `auto`, `gemini` or `demo` | `auto` |
 
-Model names change over time. If you see a 404, set `GEMINI_MODELS` or `EMBED_MODEL` to names your key supports.
+If you see a 404 from Gemini, set `GEMINI_MODELS` or `EMBED_MODEL` to names your key supports.
 
 ## API
 
+Interactive docs at `/docs`. All routes take `user_id` (the anonymous browser key).
+
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/chat` | `{user_id, message}` returns the reply, memories used, memories saved |
-| `GET` | `/memories?user_id=` | List a visitor's memories |
-| `DELETE` | `/memories/{id}?user_id=` | Delete one memory |
-| `GET` | `/health` | Liveness check |
+| `POST` | `/api/chat/stream` | `{user_id, message, conversation_id?}` → SSE: `start`, `recall`, `context`, `token`…, `saved`, `compressed`, `done` / `error` |
+| `POST` | `/api/chat` | Same, as one JSON response |
+| `GET` `POST` | `/api/conversations` | List (with search metadata) / create |
+| `GET` `PATCH` `DELETE` | `/api/conversations/{id}` | Messages / rename or pin / delete |
+| `GET` | `/api/memories?q=&category=` | List, or semantic search when `q` is set |
+| `POST` | `/api/memories` | Add a memory manually |
+| `PATCH` `DELETE` | `/api/memories/{id}` | Edit (re-embeds) / forget |
+| `DELETE` | `/api/memories?confirm=true` | Forget everything |
+| `GET` | `/api/memories/export` | Download all memories as JSON |
+| `GET` | `/api/stats` | Latency, compression and memory insights |
+| `POST` | `/api/suggest` | Suggested follow-up messages |
+| `GET` | `/api/config`, `/health` | Runtime info, liveness |
+
+## Project layout
+
+```
+src/
+  api.py          FastAPI routes + static web app
+  agent.py        one chat turn: load session, run graph, persist
+  graph.py        LangGraph state machine (recall → respond ∥ remember → compress)
+  memory.py       vector tier: save / recall / search / edit / forget
+  vectorstore.py  Qdrant backend (+ in-process fallback for tests)
+  sessions.py     session tier: conversations, messages, running summary (SQLite)
+  llm.py          Gemini provider with retries + model fallback; offline demo provider
+  suggest.py      follow-up suggestions
+web/              index.html + static/ (app.js, app.css, markdown.js)
+scripts/          benchmark.py
+tests/            pytest suite (no API key or network needed)
+```
 
 ## Deploy (Render + Qdrant Cloud)
 
-1. Create a free cluster at cloud.qdrant.io and copy its URL and an API key.
+1. Create a free cluster at cloud.qdrant.io; copy its URL and an API key.
 2. On Render, create a Web Service from this repo. Build: `pip install -r requirements.txt`. Start: `uvicorn src.api:app --host 0.0.0.0 --port $PORT`. Health check: `/health`.
-3. Set `GEMINI_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY`, and `PYTHON_VERSION=3.13.3`.
-
-The web app and API are served by the same service, so no CORS setup is needed.
+3. Set `GEMINI_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY`. Attach a persistent disk at `/opt/render/project/src/data` (or set `KUMBUKA_DB`) to keep chat history across deploys.
 
 ## Limitations and privacy
 
-- Messages are sent to Google Gemini. The free tier may use submitted content to improve Google's products, so use non-sensitive information only.
-- Visitors are identified only by a random ID in their browser. Anyone who has that ID can read those memories, and clearing browser data loses access.
-- Short-term chat history lives in server memory and resets on restart. Long-term memories persist in Qdrant.
-- Memories come from a model's judgment and can occasionally be wrong or miss facts.
-- Free tiers (Render, Qdrant Cloud, Gemini) have limits and cold starts, and all visitors share one Gemini quota.
-
-## Roadmap
-
-- [x] Vector memory with per-visitor separation and duplicate detection
-- [x] Retries and model fallback
-- [x] Web UI and tests
-- [ ] "Forget everything" control in the UI
-- [ ] Persistent chat history
-- [ ] Evaluation set for memory extraction quality
+- Messages go to Google Gemini. The free tier may use submitted content to improve Google's products, so avoid sensitive information.
+- Visitors are identified by a random key in the browser. Anyone with the key can read those memories; clearing browser data loses access unless you saved the key (Settings → Your memory key).
+- Memories come from a model's judgment and can occasionally be wrong or miss facts. Everything is visible and editable in the Memory panel.
+- Rate limiting is in-process and per IP; use a shared store if you run several replicas.
 
 ## License
 
