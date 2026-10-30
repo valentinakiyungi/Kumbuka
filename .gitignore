@@ -6,3 +6,6 @@ __pycache__/
 data/
 qdrant_data/
 .DS_Store
+build/
+*.egg-info/
+dist/

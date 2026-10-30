@@ -162,6 +162,12 @@ code { font-family: var(--mono); font-size: .88em; }
 .conv-title { margin: 0; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .badge { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }
 .badge.demo { background: var(--ember-soft); color: var(--ember); }
+.get-app {
+  margin-left: auto; display: flex; align-items: center; gap: 7px; padding: 7px 12px;
+  border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); font-weight: 600; font-size: 14px;
+}
+.get-app:hover { border-color: var(--tanzanite); color: var(--tanzanite); }
+.get-app:not([hidden]) + .memory-toggle { margin-left: 0; }
 .memory-toggle {
   margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 7px 12px;
   border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); font-weight: 600; font-size: 14px;
@@ -489,6 +495,25 @@ code { font-family: var(--mono); font-size: .88em; }
 
 .scrim { position: fixed; inset: 0; background: rgba(17, 18, 27, .4); z-index: 20; }
 
+/* ---------- get the app ---------- */
+.get-option-head { display: flex; gap: 14px; align-items: flex-start; }
+.get-option-head img { border-radius: 11px; flex: none; }
+.get-option-head h3 { margin-top: 2px; }
+.install-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; }
+.install-btn svg { width: 17px; height: 17px; }
+.install-done { margin: 4px 0 0; font-size: 14px; color: var(--ok) !important; font-weight: 600; }
+.install-steps { margin: 4px 0 0; padding-left: 20px; font-size: 14px; color: var(--ink-2); }
+.install-steps li { margin-bottom: 6px; }
+.install-steps .glyph { display: inline-grid; place-items: center; vertical-align: -3px; width: 20px; height: 20px; border-radius: 5px; background: var(--sunk); }
+.install-steps .glyph svg { width: 14px; height: 14px; }
+.cmd {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 6px 6px 6px 12px;
+  border-radius: 9px; background: var(--sunk); border: 1px solid var(--line);
+}
+.cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font-size: 13px; }
+.cmd code::before { content: "$ "; color: var(--muted); }
+.modal a { color: var(--tanzanite); }
+
 /* ---------- responsive ---------- */
 @media (max-width: 1180px) {
   .app, .app.memory-closed { grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
@@ -508,7 +533,8 @@ code { font-family: var(--mono); font-size: .88em; }
   .app.sidebar-open .sidebar { transform: none; visibility: visible; box-shadow: 20px 0 60px -20px rgba(0,0,0,.35); }
   .only-mobile { display: grid; }
   .topbar { padding: 10px 12px; }
-  .memory-toggle span:not(.count) { display: none; }
+  .memory-toggle span:not(.count), .get-app span { display: none; }
+  .get-app { padding: 7px 9px; }
   .thread { padding: 18px 14px 8px; }
   .composer { padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); }
   .suggestions { padding: 0 10px; }

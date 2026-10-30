@@ -6,6 +6,12 @@
 <title>Kumbuka · the AI that remembers you</title>
 <meta name="description" content="A chat assistant for developers that remembers your stack, projects and preferences across conversations.">
 <meta name="theme-color" content="#4B3FB0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kumbuka">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234B3FB0'/%3E%3Cpath d='M11 8v16M11 16l9-8M14 13l7 11' stroke='%23fff' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='24' cy='8' r='3' fill='%23F0B04A'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -57,6 +63,10 @@
       </button>
       <h1 class="conv-title" id="convTitle">New chat</h1>
       <span class="badge demo" id="demoBadge" hidden title="No Gemini API key configured">Demo mode</span>
+      <button class="get-app" id="getApp" aria-haspopup="dialog" title="Install Kumbuka or run it on your computer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/></svg>
+        <span>Get app</span>
+      </button>
       <button class="memory-toggle" id="toggleMemory" aria-controls="memoryPanel" aria-expanded="true">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4a3 3 0 0 0-3 3v.2A3.5 3.5 0 0 0 4 13a3.5 3.5 0 0 0 3 5.4A3 3 0 0 0 12 19V6a2 2 0 0 0-3-2zM15 4a3 3 0 0 1 3 3v.2A3.5 3.5 0 0 1 20 13a3.5 3.5 0 0 1-3 5.4A3 3 0 0 1 12 19"/></svg>
         <span>Memory</span>
@@ -195,6 +205,45 @@
         <dt><kbd>/</kbd></dt><dd>Focus the message box</dd>
         <dt><kbd>Esc</kbd></dt><dd>Stop a reply or close a panel</dd>
       </dl>
+    </section>
+  </form>
+</dialog>
+
+<dialog class="modal" id="getAppDialog" aria-labelledby="getAppTitle">
+  <form method="dialog" class="modal-inner">
+    <div class="modal-head">
+      <h2 id="getAppTitle">Get Kumbuka</h2>
+      <button class="icon-btn" value="close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+
+    <section class="setting get-option">
+      <div class="get-option-head">
+        <img src="static/icons/icon-192.png" alt="" width="44" height="44">
+        <div>
+          <h3>Install as an app</h3>
+          <p class="setting-help">Opens in its own window with a Kumbuka icon. Works on computers and phones; nothing else to set up.</p>
+        </div>
+      </div>
+      <button type="button" class="btn primary install-btn" id="installNow" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/></svg>
+        Install Kumbuka
+      </button>
+      <p class="install-done" id="installDone" hidden>Kumbuka is installed. Open it from your apps, dock or home screen.</p>
+      <ol class="install-steps" id="installSteps" hidden></ol>
+    </section>
+
+    <section class="setting get-option" id="runLocally">
+      <h3>Run it on your own computer</h3>
+      <p class="setting-help">Your chats and memories stay on your machine, and Kumbuka uses your own free Gemini key. Needs Python 3.10 or newer and <a href="https://pipx.pypa.io/stable/installation/" target="_blank" rel="noopener">pipx</a>.</p>
+      <div class="cmd">
+        <code id="cmdInstall">pipx install git+https://github.com/valentinakiyungi/Kumbuka.git</code>
+        <button type="button" class="btn small" data-copy="cmdInstall">Copy</button>
+      </div>
+      <div class="cmd">
+        <code id="cmdRun">kumbuka</code>
+        <button type="button" class="btn small" data-copy="cmdRun">Copy</button>
+      </div>
+      <p class="setting-help">The first run asks for a key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>, then opens Kumbuka in your browser. Docker and source installs are on <a href="https://github.com/valentinakiyungi/Kumbuka#install" target="_blank" rel="noopener">GitHub</a>.</p>
     </section>
   </form>
 </dialog>

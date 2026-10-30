@@ -33,7 +33,31 @@ Tell Kumbuka about your stack, projects and preferences once. It extracts the la
 3. **remember** (in parallel) asks Gemini for lasting first-person facts as structured JSON, embeds them, skips near-duplicates (cosine ≥ 0.92) and stores the rest with a category.
 4. **compress** folds older turns into the running summary once the window grows past `HISTORY_WINDOW` messages or `MAX_HISTORY_CHARS`.
 
-## Run locally
+## Install
+
+**Use it in your browser or as an app.** Open the [live demo](https://valentinakiyungi.github.io/Kumbuka/) and click **Get app** in the top bar. Chrome and Edge install it in one click; on Safari choose **File → Add to Dock**, and on iPhone tap **Share → Add to Home Screen**.
+
+**Run it on your own computer** (your chats and memories stay local, and it uses your own free [Gemini key](https://aistudio.google.com/apikey)). Needs Python 3.10+ and [pipx](https://pipx.pypa.io/stable/installation/):
+
+```bash
+pipx install git+https://github.com/valentinakiyungi/Kumbuka.git
+kumbuka
+```
+
+The first run asks for your key and opens Kumbuka in the browser. Data lives in `~/.kumbuka` (or `$KUMBUKA_HOME`).
+
+| Command | What it does |
+|---|---|
+| `kumbuka` | Start and open the browser (default port 8765, or the next free one) |
+| `kumbuka --demo` | Start without a key, in offline demo mode |
+| `kumbuka --set-key` | Replace the saved Gemini key |
+| `kumbuka --port 9000 --no-browser` | Choose a port; don't open a tab |
+| `pipx upgrade kumbuka` | Update to the latest version |
+| `pipx uninstall kumbuka` | Remove it (your data in `~/.kumbuka` stays until you delete it) |
+
+**With Docker:** clone the repo, `cp .env.example .env`, add your key, then `docker compose up --build`.
+
+## Run from source
 
 ```bash
 git clone https://github.com/valentinakiyungi/Kumbuka.git
@@ -125,7 +149,8 @@ src/
   sessions.py     session tier: conversations, messages, running summary (SQLite)
   llm.py          Gemini provider with retries + model fallback; offline demo provider
   suggest.py      follow-up suggestions
-web/              index.html + static/ (app.js, app.css, markdown.js)
+  cli.py          `kumbuka` command for local installs
+web/              index.html, sw.js, manifest + static/ (app.js, app.css, markdown.js, icons)
 scripts/          benchmark.py
 tests/            pytest suite (no API key or network needed)
 ```

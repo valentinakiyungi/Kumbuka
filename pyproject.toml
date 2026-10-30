@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kumbuka"
+version = "2.1.0"
+description = "An AI collaborator that remembers you: LangGraph + Gemini + Qdrant with dual-tier memory."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Valentina Kiyungi" }]
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph>=0.3.0",
+    "google-genai>=1.0.0",
+    "qdrant-client>=1.10.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.0.0",
+    "numpy>=1.26",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0", "httpx>=0.27.0"]
+
+[project.scripts]
+kumbuka = "src.cli:main"
+
+[project.urls]
+Homepage = "https://valentinakiyungi.github.io/Kumbuka/"
+Source = "https://github.com/valentinakiyungi/Kumbuka"
+
+[tool.setuptools]
+# Installed as-is (best with pipx, which gives Kumbuka its own environment).
+packages = ["src", "web", "web.static", "web.static.icons"]
+
+[tool.setuptools.package-data]
+"web" = ["*.html", "*.js", "*.webmanifest"]
+"web.static" = ["*.js", "*.css"]
+"web.static.icons" = ["*.png"]

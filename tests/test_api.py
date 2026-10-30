@@ -124,3 +124,15 @@ def test_cors_allows_the_github_pages_site():
     assert r.headers["access-control-allow-origin"] == "https://valentinakiyungi.github.io"
     r = c.get("/api/config", headers={"Origin": "https://evil.example"})
     assert "access-control-allow-origin" not in r.headers
+
+
+def test_installable_app_files_are_served():
+    sw = c.get("/sw.js")
+    assert sw.status_code == 200 and "javascript" in sw.headers["content-type"]
+    m = c.get("/manifest.webmanifest")
+    assert m.status_code == 200 and m.headers["content-type"].startswith("application/manifest+json")
+    manifest = m.json()
+    assert manifest["display"] == "standalone"
+    for icon in manifest["icons"]:
+        assert c.get("/" + icon["src"]).status_code == 200
+    assert 'rel="manifest"' in c.get("/").text

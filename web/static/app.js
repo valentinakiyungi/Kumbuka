@@ -784,6 +784,77 @@
     toast("Switched to that memory key");
   }
 
+  // ---------------------------------------------------------------- get the app
+  let installPrompt = null;
+  const isStandalone = () =>
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: window-controls-overlay)").matches ||
+    navigator.standalone === true;
+  const SHARE_ICON = '<span class="glyph"><svg viewBox="0 0 24 24"><path d="M12 15V3M8 7l4-4 4 4M6 11H5v10h14V11h-1"/></svg></span>';
+
+  function installSteps() {
+    const ua = navigator.userAgent;
+    const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const safari = /Safari/.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS/.test(ua);
+    const firefox = /Firefox|FxiOS/.test(ua);
+    const edge = /Edg\//.test(ua);
+    const android = /Android/.test(ua);
+    if (ios) return [`Tap Share ${SHARE_ICON} in the browser toolbar.`, "Scroll down and tap <strong>Add to Home Screen</strong>.", "Tap <strong>Add</strong>. Kumbuka appears on your home screen."];
+    if (safari) return ["In the menu bar, choose <strong>File → Add to Dock</strong>.", "Click <strong>Add</strong>. Kumbuka opens from your Dock like any other app."];
+    if (firefox && android) return ["Open the browser menu <strong>⋮</strong>.", "Tap <strong>Install</strong> (or <strong>Add to Home screen</strong>)."];
+    if (firefox) return ["Firefox on desktop can't install web apps.", "Open this page in <strong>Chrome</strong>, <strong>Edge</strong> or <strong>Safari</strong> to install it, or run Kumbuka on your computer with the steps below."];
+    if (edge) return ["Open the menu <strong>…</strong> at the top right.", "Choose <strong>Apps → Install Kumbuka</strong>."];
+    return ["Click the install icon at the right end of the address bar.", "Or open the menu <strong>⋮</strong> and choose <strong>Cast, save and share → Install page as app</strong>."];
+  }
+
+  function renderGetApp() {
+    const installed = isStandalone();
+    $("installNow").hidden = installed || !installPrompt;
+    $("installDone").hidden = !installed;
+    const steps = $("installSteps");
+    steps.hidden = installed || !!installPrompt;
+    if (!steps.hidden) steps.innerHTML = installSteps().map((t) => `<li>${t}</li>`).join("");
+    // Already running a local copy: no need to explain how to run one.
+    // Phones can't run the local version.
+    const phone = /Android|iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    $("runLocally").hidden = phone || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  }
+
+  function initGetApp() {
+    $("getApp").hidden = isStandalone();
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      installPrompt = e;
+      if ($("getAppDialog").open) renderGetApp();
+    });
+    window.addEventListener("appinstalled", () => {
+      installPrompt = null;
+      $("getApp").hidden = true;
+      if ($("getAppDialog").open) $("getAppDialog").close();
+      toast("Kumbuka is installed. You'll find it with your other apps.");
+    });
+    $("getApp").addEventListener("click", () => { renderGetApp(); $("getAppDialog").showModal(); });
+    $("installNow").addEventListener("click", async () => {
+      if (!installPrompt) return;
+      installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      installPrompt = null;
+      if (outcome !== "accepted") renderGetApp();
+    });
+    $("getAppDialog").addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-copy]");
+      if (!b) return;
+      try {
+        await navigator.clipboard.writeText($(b.dataset.copy).textContent);
+        b.textContent = "Copied";
+        setTimeout(() => (b.textContent = "Copy"), 1400);
+      } catch { toast("Couldn't copy to the clipboard.", { error: true }); }
+    });
+    if ("serviceWorker" in navigator && window.isSecureContext) {
+      navigator.serviceWorker.register("sw.js").catch(() => { /* app still works without it */ });
+    }
+  }
+
   // ---------------------------------------------------------------- boot
   // A free-tier host can take ~a minute to wake up; keep the user informed while it does.
   async function waitForServer() {
@@ -807,6 +878,7 @@
 
   async function boot() {
     initIdentity();
+    initGetApp();
     applyTheme(localStorage.getItem("kumbuka-theme") || "system");
     renderStarters();
     if (wide() && localStorage.getItem("kumbuka-memory-open") === "0") setMemoryOpen(false);

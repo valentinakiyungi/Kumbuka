@@ -344,3 +344,16 @@ app.mount("/static", StaticFiles(directory=WEB / "static", check_dir=False), nam
 @app.get("/", include_in_schema=False)
 def home():
     return FileResponse(WEB / "index.html", headers={"Cache-Control": "no-cache"})
+
+
+# Installable-app files must sit next to index.html so the service worker's scope covers the app.
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    return FileResponse(WEB / "sw.js", media_type="text/javascript",
+                        headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def manifest():
+    return FileResponse(WEB / "manifest.webmanifest", media_type="application/manifest+json",
+                        headers={"Cache-Control": "no-cache"})
