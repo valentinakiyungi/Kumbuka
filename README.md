@@ -36,7 +36,7 @@ Tell Kumbuka about your stack, projects and preferences once. It extracts the la
 ## Run locally
 
 ```bash
-git clone https://github.com/valentinakiyungi/Kumbuka-memory-agent.git
+git clone https://github.com/valentinakiyungi/Kumbuka.git
 cd Kumbuka-memory-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -146,7 +146,7 @@ The Render URL also serves the full app on its own, which is handy for testing.
 
 1. In the repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 2. Push to `main`. The `Deploy UI to GitHub Pages` workflow publishes `web/` and points it at `https://kumbuka-memory-agent.onrender.com`. To use another backend, add a repository variable `KUMBUKA_API_URL` (Settings → Secrets and variables → Actions → Variables).
-3. Open `https://<your-github-username>.github.io/Kumbuka-memory-agent/`.
+3. Open `https://<your-github-username>.github.io/Kumbuka/`.
 
 On Render's free plan the API sleeps when idle; the UI shows "Waking up the server" and retries for up to 90 seconds.
 
