@@ -112,3 +112,15 @@ def test_suggest_endpoint_never_fails(monkeypatch):
     monkeypatch.setattr(api, "next_prompts", boom)
     r = c.post("/api/suggest", json={"user_id": U, "message": "hi", "reply": "hello"})
     assert r.status_code == 200 and r.json() == {"suggestions": []}
+
+
+def test_cors_allows_the_github_pages_site():
+    r = c.options("/api/chat/stream", headers={
+        "Origin": "https://valentinakiyungi.github.io",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type",
+    })
+    assert r.status_code == 200
+    assert r.headers["access-control-allow-origin"] == "https://valentinakiyungi.github.io"
+    r = c.get("/api/config", headers={"Origin": "https://evil.example"})
+    assert "access-control-allow-origin" not in r.headers

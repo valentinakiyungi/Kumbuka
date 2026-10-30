@@ -53,6 +53,12 @@ SUMMARY_MAX_CHARS = _i("SUMMARY_MAX_CHARS", "1200")
 # --- API -------------------------------------------------------------------
 CHAT_PER_HOUR = _i("CHAT_PER_HOUR", "60")
 SUGGEST_PER_HOUR = _i("SUGGEST_PER_HOUR", "120")
+# Origins allowed to call the API from a browser (comma-separated), e.g. your GitHub Pages site.
+CORS_ORIGINS = [
+    o.strip().rstrip("/")
+    for o in os.getenv("CORS_ORIGINS", "https://valentinakiyungi.github.io").split(",")
+    if o.strip()
+]
 
 CATEGORIES = ["preference", "stack", "project", "goal", "constraint", "personal"]
 

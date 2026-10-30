@@ -4,6 +4,9 @@
 
   // ---------------------------------------------------------------- state
   const $ = (id) => document.getElementById(id);
+  // Where the API lives. Empty = same origin (served by FastAPI). On GitHub Pages,
+  // static/config.js sets window.KUMBUKA_API_BASE to the Render URL.
+  const API_BASE = String(window.KUMBUKA_API_BASE || "").replace(/\/+$/, "");
   const KEY = "kumbuka-id";
   const LEGACY = ["memory-agent-id"];
   const S = {
@@ -59,7 +62,7 @@
   }
   const qs = (o) => new URLSearchParams({ user_id: S.uid, ...o }).toString();
   async function api(path, opts = {}) {
-    const res = await fetch(path, {
+    const res = await fetch(API_BASE + path, {
       ...opts,
       headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
     });
@@ -448,7 +451,7 @@
     };
 
     try {
-      const res = await fetch("/api/chat/stream", {
+      const res = await fetch(API_BASE + "/api/chat/stream", {
         method: "POST", signal: ctrl.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: S.uid, message: text, conversation_id: S.current }),
@@ -782,6 +785,26 @@
   }
 
   // ---------------------------------------------------------------- boot
+  // A free-tier host can take ~a minute to wake up; keep the user informed while it does.
+  async function waitForServer() {
+    const started = Date.now();
+    let warned = false;
+    for (;;) {
+      try {
+        return await api("/api/config");
+      } catch (e) {
+        if (e.status) throw e;                       // server answered with an error
+        if (Date.now() - started > 90000) throw e;   // give up after 90 s
+        if (!warned) {
+          warned = true;
+          $("engineInfo").textContent = "Waking server…";
+          toast("Waking up the server. This can take up to a minute.", { timeout: 9000 });
+        }
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+  }
+
   async function boot() {
     initIdentity();
     applyTheme(localStorage.getItem("kumbuka-theme") || "system");
@@ -790,7 +813,7 @@
     else if (!wide()) $("toggleMemory").setAttribute("aria-expanded", "false");
 
     try {
-      S.config = await api("/api/config");
+      S.config = await waitForServer();
       const demo = S.config.demo;
       $("demoBadge").hidden = !demo;
       $("demoNote").hidden = !demo || localStorage.getItem("kumbuka-demo-dismissed") === "1";
@@ -801,7 +824,7 @@
       $("engineInfo").textContent = "Server offline";
       toast("Can't reach the Kumbuka server. Start it and reload.", { error: true, timeout: 8000 });
     }
-    $("exportMem").href = `/api/memories/export?${qs()}`;
+    $("exportMem").href = `${API_BASE}/api/memories/export?${qs()}`;
 
     await Promise.all([loadConversations(), refreshMemories()]);
     const m = location.hash.match(/^#c\/([A-Za-z0-9_-]+)$/);

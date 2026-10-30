@@ -34,6 +34,18 @@ app = FastAPI(title="Kumbuka", version="2.0.0",
               description="A memory-augmented conversational agent (LangGraph + Gemini + Qdrant).")
 api = APIRouter(prefix="/api")
 
+# Let a separately hosted front end (e.g. GitHub Pages) call this API.
+if config.CORS_ORIGINS:
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=config.CORS_ORIGINS,
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_headers=["Content-Type"],
+        max_age=86400,
+    )
+
 UserId = Query(..., min_length=3, max_length=64, pattern=ID)
 
 

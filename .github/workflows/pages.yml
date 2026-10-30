@@ -1,0 +1,43 @@
+# Publishes the web UI (web/) to GitHub Pages.
+# The Python API keeps running elsewhere (Render); the UI calls it over HTTPS.
+# Optional: set a repository variable KUMBUKA_API_URL to point at a different backend.
+name: Deploy UI to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Point the UI at the API
+        env:
+          API_URL: ${{ vars.KUMBUKA_API_URL || 'https://kumbuka-memory-agent.onrender.com' }}
+        run: |
+          printf 'window.KUMBUKA_API_BASE = "%s";\n' "${API_URL%/}" > web/static/config.js
+          cat web/static/config.js
+          touch web/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4

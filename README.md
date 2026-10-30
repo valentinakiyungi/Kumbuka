@@ -89,6 +89,7 @@ Lookup time excludes the embedding API call, which is reported separately (`embe
 | `SUMMARY_MAX_CHARS` | Length cap for the running summary | `1200` |
 | `KUMBUKA_DB` | SQLite file for conversations | `data/kumbuka.db` |
 | `CHAT_PER_HOUR` | Messages per IP per hour | `60` |
+| `CORS_ORIGINS` | Browser origins allowed to call the API (comma-separated) | `https://valentinakiyungi.github.io` |
 | `LLM_PROVIDER` | `auto`, `gemini` or `demo` | `auto` |
 
 If you see a 404 from Gemini, set `GEMINI_MODELS` or `EMBED_MODEL` to names your key supports.
@@ -129,11 +130,25 @@ scripts/          benchmark.py
 tests/            pytest suite (no API key or network needed)
 ```
 
-## Deploy (Render + Qdrant Cloud)
+## Deploy
+
+The UI is static and runs on **GitHub Pages**; the Python API (LangGraph, Gemini, Qdrant) runs on **Render**. GitHub Pages can't run Python, so the two are split.
+
+**API on Render (+ Qdrant Cloud)**
 
 1. Create a free cluster at cloud.qdrant.io; copy its URL and an API key.
 2. On Render, create a Web Service from this repo. Build: `pip install -r requirements.txt`. Start: `uvicorn src.api:app --host 0.0.0.0 --port $PORT`. Health check: `/health`.
-3. Set `GEMINI_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY`. Attach a persistent disk at `/opt/render/project/src/data` (or set `KUMBUKA_DB`) to keep chat history across deploys.
+3. Set `GEMINI_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY`, and `CORS_ORIGINS=https://<your-github-username>.github.io`. Attach a disk and set `KUMBUKA_DB` to a path on it to keep chat history across deploys.
+
+The Render URL also serves the full app on its own, which is handy for testing.
+
+**UI on GitHub Pages**
+
+1. In the repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. Push to `main`. The `Deploy UI to GitHub Pages` workflow publishes `web/` and points it at `https://kumbuka-memory-agent.onrender.com`. To use another backend, add a repository variable `KUMBUKA_API_URL` (Settings → Secrets and variables → Actions → Variables).
+3. Open `https://<your-github-username>.github.io/Kumbuka-memory-agent/`.
+
+On Render's free plan the API sleeps when idle; the UI shows "Waking up the server" and retries for up to 90 seconds.
 
 ## Limitations and privacy
 
