@@ -1,6 +1,6 @@
 # Kumbuka
 
-**An AI collaborator that remembers you.** *Kumbuka* means "remember" in Swahili.
+**An AI collaborator that remembers you.** · [Live demo](https://valentinakiyungi.github.io/Kumbuka/) *Kumbuka* means "remember" in Swahili.
 
 Tell Kumbuka about your stack, projects and preferences once. It extracts the lasting facts, stores them as vectors, and recalls the relevant ones in every later conversation. Long chats stay fast because older turns are folded into a running summary. You can see, search, edit and delete everything it keeps.
 
